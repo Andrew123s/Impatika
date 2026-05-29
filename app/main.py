@@ -10,22 +10,29 @@ Interactive API docs remain at `/docs`.
 """
 from __future__ import annotations
 
+import re
+
 from shapely.geometry import mapping
 
 from fastapi import Body, FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.responses import FileResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from app import __version__
+from app import __version__, export
 from app.config import BASE_DIR
 from app.core import aoi as aoi_mod
 from app.core.data_layers import load_layers
 from app.examples import EXAMPLE_PROJECT
 from app.llm import client as llm_client
-from app.models.schemas import AOI, AssessmentResult, ProjectInput
+from app.models.schemas import AOI, AssessmentResult, AssessRequest, ProjectInput, Thresholds
 from app.pipeline import run_assessment
 
 STATIC_DIR = BASE_DIR / "static"
+_DEMO_REQUEST = {"demo": {"value": {"project": EXAMPLE_PROJECT.model_dump()}}}
+
+
+def _slug(name: str) -> str:
+    return re.sub(r"[^A-Za-z0-9._-]+", "_", name).strip("_") or "impatika_eia"
 
 app = FastAPI(
     title="Impatika",
@@ -68,6 +75,12 @@ def layers() -> dict:
     return out
 
 
+@app.get("/thresholds", response_model=Thresholds)
+def thresholds() -> Thresholds:
+    """Default risk-scoring thresholds (used to populate the UI editor)."""
+    return Thresholds()
+
+
 @app.post("/aoi", response_model=AOI)
 def aoi_endpoint(project: ProjectInput = Body(..., examples={"demo": {"value": EXAMPLE_PROJECT.model_dump()}})) -> AOI:
     try:
@@ -76,15 +89,43 @@ def aoi_endpoint(project: ProjectInput = Body(..., examples={"demo": {"value": E
         raise HTTPException(status_code=422, detail=str(exc))
 
 
-@app.post("/assess")
-def assess(
-    project: ProjectInput = Body(..., examples={"demo": {"value": EXAMPLE_PROJECT.model_dump()}}),
-    format: str = Query("json", pattern="^(json|markdown)$"),
-):
+def _assess(req: AssessRequest) -> AssessmentResult:
     try:
-        result: AssessmentResult = run_assessment(project)
+        return run_assessment(req.project, thresholds=req.thresholds)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
+
+
+@app.post("/assess")
+def assess(
+    req: AssessRequest = Body(..., examples=_DEMO_REQUEST),
+    format: str = Query("json", pattern="^(json|markdown)$"),
+):
+    result = _assess(req)
     if format == "markdown":
         return PlainTextResponse(result.markdown, media_type="text/markdown")
     return result
+
+
+@app.post("/export/docx")
+def export_docx(req: AssessRequest = Body(..., examples=_DEMO_REQUEST)) -> Response:
+    result = _assess(req)
+    data = export.to_docx(result)
+    filename = f"{_slug(result.project.name)}.docx"
+    return Response(
+        content=data,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.post("/export/pdf")
+def export_pdf(req: AssessRequest = Body(..., examples=_DEMO_REQUEST)) -> Response:
+    result = _assess(req)
+    data = export.to_pdf(result)
+    filename = f"{_slug(result.project.name)}.pdf"
+    return Response(
+        content=data,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

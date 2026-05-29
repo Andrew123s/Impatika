@@ -9,7 +9,7 @@ from shapely.geometry import Point
 from app.core import aoi as aoi_mod
 from app.core import geo, metrics as metrics_mod, report as report_mod, scoring
 from app.core.data_layers import LayerStore, load_layers
-from app.models.schemas import AssessmentResult, ProjectInput, RiskLevel
+from app.models.schemas import AssessmentResult, ProjectInput, RiskLevel, Thresholds
 
 
 def _base_geometry(project: ProjectInput):
@@ -49,7 +49,11 @@ def render_markdown(result: AssessmentResult) -> str:
     return "\n".join(lines).strip() + "\n"
 
 
-def run_assessment(project: ProjectInput, layers: LayerStore | None = None) -> AssessmentResult:
+def run_assessment(
+    project: ProjectInput,
+    layers: LayerStore | None = None,
+    thresholds: Thresholds | None = None,
+) -> AssessmentResult:
     layers = layers or load_layers()
     base_geom = _base_geometry(project)
 
@@ -57,7 +61,7 @@ def run_assessment(project: ProjectInput, layers: LayerStore | None = None) -> A
     aoi_geom = geo.to_shape(aoi.geometry)
 
     metrics = metrics_mod.compute_metrics(aoi_geom, base_geom, project, layers)
-    scores, overall = scoring.score(metrics)
+    scores, overall = scoring.score(metrics, thresholds)
     report = report_mod.generate_report(project, aoi, metrics, scores, overall)
 
     warnings: list[str] = []

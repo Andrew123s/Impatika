@@ -50,8 +50,12 @@ interactive API.
 The root path serves a single-page frontend (Leaflet map + project form). Draw
 a point/line/polygon or click **Load demo**, run the assessment, and the map
 shows the environmental layers and computed Area of Influence alongside a
-colour-coded risk summary and the rendered EIA report. It is plain
-HTML/CSS/JS served by FastAPI — no build step.
+colour-coded risk summary and the rendered EIA report. You can also:
+
+- **Tune risk thresholds** in the collapsible editor and re-run to re-score.
+- **Download** the report as **DOCX** or **PDF**.
+
+It is plain HTML/CSS/JS served by FastAPI — no build step.
 
 ### Endpoints
 
@@ -59,14 +63,22 @@ HTML/CSS/JS served by FastAPI — no build step.
 |---|---|---|
 | GET | `/` | Web UI (single-page frontend). |
 | GET | `/health` | Liveness + whether LLM drafting is enabled. |
-| GET | `/example` | A demo project body you can POST to `/assess`. |
+| GET | `/example` | A demo project body (the `project` part of an assess request). |
 | GET | `/layers` | Available environmental layers as GeoJSON (used by the map). |
-| POST | `/aoi` | Just the buffered AOI (steps 1–2). |
+| GET | `/thresholds` | Default risk-scoring thresholds (seeds the UI editor). |
+| POST | `/aoi` | Just the buffered AOI (steps 1–2). Body: a project. |
 | POST | `/assess` | Full EIA. `?format=json` (default) or `?format=markdown`. |
+| POST | `/export/docx` | The EIA report as a Word `.docx` download. |
+| POST | `/export/pdf` | The EIA report as a `.pdf` download. |
+
+`/assess`, `/export/docx` and `/export/pdf` take an **AssessRequest** body —
+`{ "project": {...}, "thresholds": {...}? }` — where `thresholds` is optional
+(defaults applied when omitted).
 
 ```bash
-curl -s http://127.0.0.1:8000/example | \
-  curl -s -X POST http://127.0.0.1:8000/assess -H "Content-Type: application/json" -d @-
+curl -s -X POST http://127.0.0.1:8000/assess \
+  -H "Content-Type: application/json" \
+  -d "{\"project\": $(curl -s http://127.0.0.1:8000/example)}"
 ```
 
 ## Output

@@ -60,6 +60,13 @@
           <p class="hint">Use the draw tools (top-left of the map) to add a point, line, or polygon. The buffered Area of Influence is computed by project type.</p>
         </div>
 
+        <details class="thresholds">
+          <summary>Risk thresholds</summary>
+          <p class="hint">Tune the rule-based cut-offs, then re-run to re-score. Values seed from the defaults.</p>
+          <div id="thresholds-grid" class="thresholds-grid"></div>
+          <button type="button" id="btn-reset-thresholds" class="link-btn">Reset to defaults</button>
+        </details>
+
         <div class="actions">
           <button type="button" id="btn-demo" class="btn btn-secondary">Load demo</button>
           <button type="submit" id="btn-assess" class="btn btn-primary">Run assessment</button>
@@ -89,6 +96,10 @@
     <div class="report-tabs">
       <button class="tab active" data-tab="report">EIA report</button>
       <button class="tab" data-tab="json">Raw JSON</button>
+      <div class="export-actions">
+        <button type="button" id="btn-docx" class="btn-export">Download DOCX</button>
+        <button type="button" id="btn-pdf" class="btn-export">Download PDF</button>
+      </div>
     </div>
     <article id="report-body" class="report-body markdown"></article>
     <pre id="json-body" class="json-body hidden"></pre>

@@ -57,6 +57,13 @@ form input:focus, form select:focus, form textarea:focus { outline: none; border
 .geom-head { display: flex; justify-content: space-between; font-size: 13px; color: var(--text); }
 .hint { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
 
+.thresholds { background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; margin-bottom: 14px; }
+.thresholds summary { cursor: pointer; font-size: 13px; color: var(--text); }
+.thresholds-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; margin-top: 8px; }
+.thresholds-grid label { margin-bottom: 4px; font-size: 11px; color: var(--muted); }
+.thresholds-grid input { margin-top: 2px; padding: 5px 7px; font-size: 12px; }
+.link-btn { background: none; border: none; color: var(--accent); cursor: pointer; font: inherit; font-size: 12px; padding: 6px 0 0; }
+
 .actions { display: flex; gap: 10px; }
 .btn { flex: 1; padding: 10px; border-radius: 6px; border: 1px solid var(--border); cursor: pointer; font: inherit; font-weight: 600; }
 .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
@@ -101,9 +108,13 @@ form input:focus, form select:focus, form textarea:focus { outline: none; border
 .legend .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 
 .report-panel { border-top: 1px solid var(--border); max-height: 45vh; overflow-y: auto; }
-.report-tabs { position: sticky; top: 0; background: var(--panel); display: flex; gap: 4px; padding: 10px 20px 0; border-bottom: 1px solid var(--border); }
+.report-tabs { position: sticky; top: 0; background: var(--panel); display: flex; align-items: center; gap: 4px; padding: 10px 20px 0; border-bottom: 1px solid var(--border); }
 .tab { background: none; border: none; color: var(--muted); padding: 8px 14px; cursor: pointer; border-bottom: 2px solid transparent; font: inherit; }
 .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+.export-actions { margin-left: auto; display: flex; gap: 8px; padding-bottom: 6px; }
+.btn-export { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 12px; cursor: pointer; font: inherit; font-size: 12px; }
+.btn-export:hover { border-color: var(--accent); color: var(--accent); }
+.btn-export:disabled { opacity: 0.5; cursor: not-allowed; }
 .report-body { padding: 6px 28px 28px; max-width: 900px; }
 .json-body { padding: 16px 28px 28px; font-size: 12px; white-space: pre-wrap; word-break: break-word; color: #b9c4d0; }
 

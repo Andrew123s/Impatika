@@ -3,7 +3,22 @@
 const LEVEL_COLORS = { High: "#e5484d", Medium: "#f5a623", Low: "#3fb950", Unknown: "#6b7684" };
 const THREATENED = new Set(["CR", "EN", "VU"]);
 
+const THRESHOLD_FIELDS = [
+  { key: "protected_overlap_high_pct", label: "Protected overlap High (%)" },
+  { key: "protected_overlap_medium_pct", label: "Protected overlap Med (%)" },
+  { key: "river_distance_high_m", label: "River dist High (m)" },
+  { key: "river_distance_medium_m", label: "River dist Med (m)" },
+  { key: "settlement_distance_high_m", label: "Settlement High (m)" },
+  { key: "settlement_distance_medium_m", label: "Settlement Med (m)" },
+  { key: "slope_high_deg", label: "Slope High (°)" },
+  { key: "slope_medium_deg", label: "Slope Med (°)" },
+  { key: "emissions_high_tco2e", label: "Emissions High (tCO₂e)" },
+  { key: "emissions_medium_tco2e", label: "Emissions Med (tCO₂e)" },
+];
+
 let map, drawnItems, aoiLayer, currentGeometry = null;
+let thresholdDefaults = {};
+let lastRequest = null;
 
 // ---- Map setup -------------------------------------------------------------
 function initMap() {
@@ -108,8 +123,35 @@ async function loadDemo() {
   setStatus("Demo project loaded. Click Run assessment.", "ok");
 }
 
+// ---- Thresholds ------------------------------------------------------------
+async function loadThresholds() {
+  try { thresholdDefaults = await (await fetch("/thresholds")).json(); }
+  catch { thresholdDefaults = {}; }
+  const grid = document.getElementById("thresholds-grid");
+  grid.innerHTML = THRESHOLD_FIELDS.map((f) => `
+    <label>${f.label}
+      <input type="number" step="any" min="0" id="t-${f.key}" value="${thresholdDefaults[f.key] ?? ""}" />
+    </label>`).join("");
+}
+
+function resetThresholds() {
+  THRESHOLD_FIELDS.forEach((f) => {
+    const el = document.getElementById("t-" + f.key);
+    if (el) el.value = thresholdDefaults[f.key] ?? "";
+  });
+}
+
+function readThresholds() {
+  const t = {};
+  THRESHOLD_FIELDS.forEach((f) => {
+    const v = parseFloat(document.getElementById("t-" + f.key).value);
+    t[f.key] = Number.isFinite(v) ? v : thresholdDefaults[f.key];
+  });
+  return t;
+}
+
 // ---- Assessment ------------------------------------------------------------
-function buildPayload() {
+function buildProject() {
   const num = (id) => { const v = parseFloat(document.getElementById(id).value); return Number.isFinite(v) ? v : null; };
   return {
     name: document.getElementById("f-name").value || "Untitled project",
@@ -122,27 +164,63 @@ function buildPayload() {
   };
 }
 
+function buildRequest() {
+  return { project: buildProject(), thresholds: readThresholds() };
+}
+
 async function runAssessment(evt) {
   evt.preventDefault();
   if (!currentGeometry) { setStatus("Add a geometry first (draw on the map or load the demo).", "error"); return; }
 
   const btn = document.getElementById("btn-assess");
   btn.disabled = true; setStatus("Assessing…", "");
+  const request = buildRequest();
   try {
     const res = await fetch("/assess", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(buildPayload()),
+      body: JSON.stringify(request),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(typeof err.detail === "string" ? err.detail : "Assessment failed (" + res.status + ").");
     }
     renderResult(await res.json());
+    lastRequest = request;
+    document.getElementById("btn-docx").disabled = false;
+    document.getElementById("btn-pdf").disabled = false;
     setStatus("Assessment complete.", "ok");
   } catch (err) {
     setStatus(err.message, "error");
   } finally {
     btn.disabled = false;
+  }
+}
+
+// ---- Export ----------------------------------------------------------------
+async function exportReport(fmt) {
+  if (!lastRequest) return;
+  const btn = document.getElementById("btn-" + fmt);
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = "Preparing…";
+  try {
+    const res = await fetch("/export/" + fmt, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(lastRequest),
+    });
+    if (!res.ok) throw new Error("Export failed (" + res.status + ").");
+    const blob = await res.blob();
+    const cd = res.headers.get("Content-Disposition") || "";
+    const match = cd.match(/filename="?([^"]+)"?/);
+    const name = match ? match[1] : "impatika_eia." + fmt;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = name; document.body.appendChild(a); a.click();
+    a.remove(); URL.revokeObjectURL(url);
+    setStatus(name + " downloaded.", "ok");
+  } catch (err) {
+    setStatus(err.message, "error");
+  } finally {
+    btn.disabled = false; btn.textContent = original;
   }
 }
 
@@ -203,7 +281,13 @@ window.addEventListener("DOMContentLoaded", () => {
   initMap();
   loadLayers();
   loadHealth();
+  loadThresholds();
   setupTabs();
+  document.getElementById("btn-docx").disabled = true;
+  document.getElementById("btn-pdf").disabled = true;
   document.getElementById("btn-demo").addEventListener("click", loadDemo);
+  document.getElementById("btn-reset-thresholds").addEventListener("click", resetThresholds);
+  document.getElementById("btn-docx").addEventListener("click", () => exportReport("docx"));
+  document.getElementById("btn-pdf").addEventListener("click", () => exportReport("pdf"));
   document.getElementById("project-form").addEventListener("submit", runAssessment);
 });

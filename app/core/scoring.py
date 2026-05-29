@@ -1,18 +1,15 @@
 """Step 5 — Convert metrics into deterministic risk scores.
 
-Each scorer reads one MetricGroup, applies the thresholds defined in
-app.config, and returns a RiskScore carrying the level, a plain-language
-reason, and the exact metric value(s) behind it (`metric_basis`) so any score
-can be audited back to its input.
+Each scorer reads one MetricGroup, applies the thresholds (overridable per
+request via the Thresholds model, defaulting to app.config), and returns a
+RiskScore carrying the level, a plain-language reason, and the exact metric
+value(s) behind it (`metric_basis`) so any score can be audited to its input.
 
 Unavailable metrics yield RiskLevel.unknown rather than an assumed level.
 """
 from __future__ import annotations
 
-from typing import Any
-
-from app import config
-from app.models.schemas import LayerMetrics, MetricGroup, RiskLevel, RiskScore
+from app.models.schemas import LayerMetrics, MetricGroup, RiskLevel, RiskScore, Thresholds
 
 _RANK = {RiskLevel.unknown: -1, RiskLevel.low: 0, RiskLevel.medium: 1, RiskLevel.high: 2}
 
@@ -32,19 +29,23 @@ def _unknown(category: str, group: MetricGroup) -> RiskScore:
     )
 
 
-def _score_biodiversity(g: MetricGroup) -> RiskScore:
+def _score_biodiversity(g: MetricGroup, t: Thresholds) -> RiskScore:
     if not g.available:
         return _unknown("Biodiversity", g)
     v = g.values
     overlap = v.get("protected_area_overlap_pct", 0.0) or 0.0
     threatened = v.get("threatened_species_count", 0) or 0
 
-    if overlap > config.PROTECTED_OVERLAP_HIGH * 100:
-        overlap_level, overlap_reason = RiskLevel.high, f"AOI overlaps protected areas by {overlap:.1f}% (>10%)."
-    elif overlap > config.PROTECTED_OVERLAP_MEDIUM * 100:
-        overlap_level, overlap_reason = RiskLevel.medium, f"AOI overlaps protected areas by {overlap:.1f}% (1–10%)."
+    if overlap > t.protected_overlap_high_pct:
+        overlap_level = RiskLevel.high
+        overlap_reason = f"AOI overlaps protected areas by {overlap:.1f}% (>{t.protected_overlap_high_pct:g}%)."
+    elif overlap > t.protected_overlap_medium_pct:
+        overlap_level = RiskLevel.medium
+        overlap_reason = (f"AOI overlaps protected areas by {overlap:.1f}% "
+                          f"({t.protected_overlap_medium_pct:g}–{t.protected_overlap_high_pct:g}%).")
     else:
-        overlap_level, overlap_reason = RiskLevel.low, f"Negligible protected-area overlap ({overlap:.1f}%)."
+        overlap_level = RiskLevel.low
+        overlap_reason = f"Negligible protected-area overlap ({overlap:.1f}%)."
 
     if threatened > 0:
         names = ", ".join(s.get("common_name") or s.get("species") for s in v.get("threatened_species", []))
@@ -65,7 +66,7 @@ def _score_biodiversity(g: MetricGroup) -> RiskScore:
     })
 
 
-def _score_water(g: MetricGroup) -> RiskScore:
+def _score_water(g: MetricGroup, t: Thresholds) -> RiskScore:
     if not g.available:
         return _unknown("Water", g)
     v = g.values
@@ -74,12 +75,13 @@ def _score_water(g: MetricGroup) -> RiskScore:
     if dist is None:
         return _unknown("Water", g)
 
-    if dist < config.RIVER_DISTANCE_HIGH_M:
-        level, reason = RiskLevel.high, f"Project lies {dist:.0f} m from {name} (<100 m)."
-    elif dist < config.RIVER_DISTANCE_MEDIUM_M:
-        level, reason = RiskLevel.medium, f"Project lies {dist:.0f} m from {name} (100–500 m)."
+    if dist < t.river_distance_high_m:
+        level, reason = RiskLevel.high, f"Project lies {dist:.0f} m from {name} (<{t.river_distance_high_m:g} m)."
+    elif dist < t.river_distance_medium_m:
+        level, reason = RiskLevel.medium, (f"Project lies {dist:.0f} m from {name} "
+                                           f"({t.river_distance_high_m:g}–{t.river_distance_medium_m:g} m).")
     else:
-        level, reason = RiskLevel.low, f"Nearest watercourse ({name}) is {dist:.0f} m away (>500 m)."
+        level, reason = RiskLevel.low, f"Nearest watercourse ({name}) is {dist:.0f} m away (>{t.river_distance_medium_m:g} m)."
     if v.get("perennial_river_within_aoi"):
         reason += " A perennial river falls within the AOI, increasing hydrological sensitivity."
         level = _max_level(level, RiskLevel.medium)
@@ -89,7 +91,7 @@ def _score_water(g: MetricGroup) -> RiskScore:
     })
 
 
-def _score_land_soil(g: MetricGroup) -> RiskScore:
+def _score_land_soil(g: MetricGroup, t: Thresholds) -> RiskScore:
     if not g.available:
         return _unknown("Land & Soil", g)
     v = g.values
@@ -98,9 +100,9 @@ def _score_land_soil(g: MetricGroup) -> RiskScore:
     veg_removal = v.get("vegetation_removal_ha")
 
     if slope is not None:
-        if slope > config.SLOPE_HIGH_DEG:
+        if slope > t.slope_high_deg:
             slope_level, slope_reason = RiskLevel.high, f"Steep mean slope (~{slope:.1f}°) implies high erosion sensitivity."
-        elif slope > config.SLOPE_MEDIUM_DEG:
+        elif slope > t.slope_medium_deg:
             slope_level, slope_reason = RiskLevel.medium, f"Moderate mean slope (~{slope:.1f}°) implies some erosion sensitivity."
         else:
             slope_level, slope_reason = RiskLevel.low, f"Gentle terrain (~{slope:.1f}° mean slope); low erosion sensitivity."
@@ -123,17 +125,17 @@ def _score_land_soil(g: MetricGroup) -> RiskScore:
     })
 
 
-def _score_climate(g: MetricGroup) -> RiskScore:
+def _score_climate(g: MetricGroup, t: Thresholds) -> RiskScore:
     if not g.available:
         return _unknown("Climate", g)
     v = g.values
     total = v.get("total_estimated_emissions_tco2e", 0.0) or 0.0
-    if total > config.EMISSIONS_HIGH_TCO2E:
-        level, band = RiskLevel.high, ">50,000"
-    elif total > config.EMISSIONS_MEDIUM_TCO2E:
-        level, band = RiskLevel.medium, "5,000–50,000"
+    if total > t.emissions_high_tco2e:
+        level, band = RiskLevel.high, f">{t.emissions_high_tco2e:,.0f}"
+    elif total > t.emissions_medium_tco2e:
+        level, band = RiskLevel.medium, f"{t.emissions_medium_tco2e:,.0f}–{t.emissions_high_tco2e:,.0f}"
     else:
-        level, band = RiskLevel.low, "<5,000"
+        level, band = RiskLevel.low, f"<{t.emissions_medium_tco2e:,.0f}"
     reason = (
         f"Estimated emissions ~{total:,.0f} tCO2e ({band} tCO2e band), "
         f"of which {v.get('land_use_change_emissions_tco2e', 0):,.0f} from land-use change."
@@ -143,7 +145,7 @@ def _score_climate(g: MetricGroup) -> RiskScore:
     })
 
 
-def _score_social(g: MetricGroup) -> RiskScore:
+def _score_social(g: MetricGroup, t: Thresholds) -> RiskScore:
     if not g.available:
         return _unknown("Social", g)
     v = g.values
@@ -153,12 +155,13 @@ def _score_social(g: MetricGroup) -> RiskScore:
     if dist is None:
         return _unknown("Social", g)
 
-    if dist < config.SETTLEMENT_DISTANCE_HIGH_M:
-        level, reason = RiskLevel.high, f"{name} lies {dist:.0f} m from the project (<500 m)."
-    elif dist < config.SETTLEMENT_DISTANCE_MEDIUM_M:
-        level, reason = RiskLevel.medium, f"{name} lies {dist:.0f} m from the project (500 m–2 km)."
+    if dist < t.settlement_distance_high_m:
+        level, reason = RiskLevel.high, f"{name} lies {dist:.0f} m from the project (<{t.settlement_distance_high_m:g} m)."
+    elif dist < t.settlement_distance_medium_m:
+        level, reason = RiskLevel.medium, (f"{name} lies {dist:.0f} m from the project "
+                                           f"({t.settlement_distance_high_m:g}–{t.settlement_distance_medium_m:g} m).")
     else:
-        level, reason = RiskLevel.low, f"Nearest settlement ({name}) is {dist:.0f} m away (>2 km)."
+        level, reason = RiskLevel.low, f"Nearest settlement ({name}) is {dist:.0f} m away (>{t.settlement_distance_medium_m:g} m)."
     if pop > 0:
         reason += f" ~{pop:,} people fall within the AOI."
     return RiskScore(category="Social", level=level, reason=reason, metric_basis={
@@ -167,13 +170,14 @@ def _score_social(g: MetricGroup) -> RiskScore:
     })
 
 
-def score(metrics: LayerMetrics) -> tuple[list[RiskScore], RiskLevel]:
+def score(metrics: LayerMetrics, thresholds: Thresholds | None = None) -> tuple[list[RiskScore], RiskLevel]:
+    t = thresholds or Thresholds()
     scores = [
-        _score_biodiversity(metrics.biodiversity),
-        _score_water(metrics.water),
-        _score_land_soil(metrics.land_soil),
-        _score_climate(metrics.climate),
-        _score_social(metrics.social),
+        _score_biodiversity(metrics.biodiversity, t),
+        _score_water(metrics.water, t),
+        _score_land_soil(metrics.land_soil, t),
+        _score_climate(metrics.climate, t),
+        _score_social(metrics.social, t),
     ]
     overall = _max_level(*[s.level for s in scores])
     return scores, overall

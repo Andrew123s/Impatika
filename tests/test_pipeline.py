@@ -10,11 +10,12 @@ import math
 import pytest
 from shapely.geometry import LineString, Point
 
+from app import export
 from app.core import aoi as aoi_mod
 from app.core import geo
 from app.core.data_layers import load_layers
 from app.examples import EXAMPLE_PROJECT
-from app.models.schemas import ProjectInput, ProjectScale, RiskLevel
+from app.models.schemas import ProjectInput, ProjectScale, RiskLevel, Thresholds
 from app.pipeline import run_assessment
 
 
@@ -96,6 +97,33 @@ def test_remote_project_runs_and_scores_low():
 
 
 # --- missing layers -> graceful Unknown -------------------------------------
+def test_thresholds_override_reclassifies_climate():
+    base = {s.category: s.level for s in run_assessment(EXAMPLE_PROJECT).risk_scores}
+    assert base["Climate"] == RiskLevel.medium  # ~31k tCO2e in the 5k–50k band
+
+    # Raise the Medium emissions band above the project's estimate -> Low.
+    t = Thresholds(emissions_medium_tco2e=40_000)
+    over = {s.category: s.level for s in run_assessment(EXAMPLE_PROJECT, thresholds=t).risk_scores}
+    assert over["Climate"] == RiskLevel.low
+
+
+def test_exports_produce_valid_files():
+    result = run_assessment(EXAMPLE_PROJECT)
+    docx_bytes = export.to_docx(result)
+    pdf_bytes = export.to_pdf(result)
+    assert docx_bytes[:2] == b"PK"        # docx is a zip container
+    assert pdf_bytes[:5] == b"%PDF-"
+    assert len(docx_bytes) > 5_000 and len(pdf_bytes) > 1_000
+
+
+def test_parse_blocks_handles_tables_and_lists():
+    blocks = export.parse_blocks("intro para\n\n- one\n- two\n\n| A | B |\n|---|---|\n| 1 | 2 |")
+    kinds = [b["type"] for b in blocks]
+    assert kinds == ["para", "list", "table"]
+    assert blocks[1]["items"] == ["one", "two"]
+    assert blocks[2]["rows"] == [["A", "B"], ["1", "2"]]  # separator row dropped
+
+
 def test_missing_layers_yield_unknown(tmp_path):
     empty_store = load_layers(tmp_path)  # no geojson files here
     result = run_assessment(EXAMPLE_PROJECT, layers=empty_store)

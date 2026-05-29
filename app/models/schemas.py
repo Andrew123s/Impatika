@@ -12,6 +12,8 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
+from app import config
+
 
 class ProjectType(str, Enum):
     road = "road"
@@ -109,6 +111,30 @@ class ReportSection(BaseModel):
 class EIAReport(BaseModel):
     generator: str = Field(..., description="'llm' or 'template' — how the prose was produced.")
     sections: list[ReportSection]
+
+
+# --- Tunable thresholds ------------------------------------------------------
+class Thresholds(BaseModel):
+    """Risk-scoring thresholds, overridable per request. Defaults come from
+    app.config (the canonical values). Overlap thresholds are in percent."""
+
+    protected_overlap_high_pct: float = config.PROTECTED_OVERLAP_HIGH * 100
+    protected_overlap_medium_pct: float = config.PROTECTED_OVERLAP_MEDIUM * 100
+    river_distance_high_m: float = config.RIVER_DISTANCE_HIGH_M
+    river_distance_medium_m: float = config.RIVER_DISTANCE_MEDIUM_M
+    settlement_distance_high_m: float = config.SETTLEMENT_DISTANCE_HIGH_M
+    settlement_distance_medium_m: float = config.SETTLEMENT_DISTANCE_MEDIUM_M
+    slope_high_deg: float = config.SLOPE_HIGH_DEG
+    slope_medium_deg: float = config.SLOPE_MEDIUM_DEG
+    emissions_high_tco2e: float = config.EMISSIONS_HIGH_TCO2E
+    emissions_medium_tco2e: float = config.EMISSIONS_MEDIUM_TCO2E
+
+
+class AssessRequest(BaseModel):
+    project: ProjectInput
+    thresholds: Optional[Thresholds] = Field(
+        None, description="Optional overrides for risk-scoring thresholds; defaults applied when omitted."
+    )
 
 
 # --- Result ------------------------------------------------------------------
