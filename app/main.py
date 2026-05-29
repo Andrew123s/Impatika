@@ -10,7 +10,7 @@ Endpoints:
 from __future__ import annotations
 
 from fastapi import Body, FastAPI, HTTPException, Query
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, RedirectResponse
 
 from app import __version__
 from app.core import aoi as aoi_mod
@@ -24,6 +24,11 @@ app = FastAPI(
     version=__version__,
     description="AI Environmental Impact Assessment engine — GIS overlays, rule-based scoring, and LLM-drafted EIA reports.",
 )
+
+
+@app.get("/", include_in_schema=False)
+def root():
+    return RedirectResponse(url="/docs")
 
 
 @app.get("/health")

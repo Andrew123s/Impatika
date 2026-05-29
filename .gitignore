@@ -10,3 +10,6 @@ env/
 .DS_Store
 dist/
 build/
+
+# Local dev preview config (machine-specific paths)
+.claude/launch.json
