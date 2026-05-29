@@ -42,12 +42,25 @@ uvicorn app.main:app --reload
 # open http://127.0.0.1:8000/docs
 ```
 
+Then open **http://127.0.0.1:8000** for the web UI, or `/docs` for the
+interactive API.
+
+### Web UI
+
+The root path serves a single-page frontend (Leaflet map + project form). Draw
+a point/line/polygon or click **Load demo**, run the assessment, and the map
+shows the environmental layers and computed Area of Influence alongside a
+colour-coded risk summary and the rendered EIA report. It is plain
+HTML/CSS/JS served by FastAPI — no build step.
+
 ### Endpoints
 
 | Method | Path | Description |
 |---|---|---|
+| GET | `/` | Web UI (single-page frontend). |
 | GET | `/health` | Liveness + whether LLM drafting is enabled. |
 | GET | `/example` | A demo project body you can POST to `/assess`. |
+| GET | `/layers` | Available environmental layers as GeoJSON (used by the map). |
 | POST | `/aoi` | Just the buffered AOI (steps 1–2). |
 | POST | `/assess` | Full EIA. `?format=json` (default) or `?format=markdown`. |
 
