@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Impatika — Environmental Impact Assessment</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <h1>Impatika</h1>
+      <span class="tagline">AI Environmental Impact Assessment</span>
+    </div>
+    <div class="header-actions">
+      <span id="llm-badge" class="pill pill-muted" title="Report prose generator">prose: …</span>
+      <button type="button" id="btn-theme" class="icon-btn" title="Toggle light/dark theme">◐</button>
+      <button type="button" id="btn-shortcuts" class="icon-btn" title="Keyboard shortcuts">?</button>
+      <button type="button" id="btn-share" class="btn-header" title="Copy shareable project link">Share</button>
+      <a class="link" href="/docs" target="_blank" rel="noopener">API docs ↗</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="panel form-panel">
+      <h2>Project</h2>
+      <form id="project-form" autocomplete="off">
+        <label>Name<input type="text" id="f-name" value="Untitled project" /></label>
+
+        <label>Type
+          <select id="f-type">
+            <option value="road">Road</option>
+            <option value="pipeline">Pipeline</option>
+            <option value="solar_farm">Solar farm</option>
+            <option value="wind_farm">Wind farm</option>
+            <option value="dam">Dam</option>
+            <option value="mine">Mine</option>
+            <option value="building">Building</option>
+            <option value="other">Other</option>
+          </select>
+        </label>
+
+        <label>Description<textarea id="f-description" rows="2"></textarea></label>
+
+        <div class="row3">
+          <label>Length (km)<input type="number" id="f-length" min="0" step="0.1" /></label>
+          <label>Area (ha)<input type="number" id="f-area" min="0" step="1" /></label>
+          <label>Capacity (MW)<input type="number" id="f-capacity" min="0" step="1" /></label>
+        </div>
+
+        <label>Activities (comma-separated)
+          <input type="text" id="f-activities" placeholder="land clearing, earthworks" />
+        </label>
+        <p id="activity-hint" class="hint activity-hint hidden">Suggested activities applied — edit as needed.</p>
+
+        <label>Sensitive receptors (comma-separated)
+          <input type="text" id="f-receptors" placeholder="national park, perennial river" />
+        </label>
+
+        <div class="geom-box">
+          <div class="geom-head">
+            <span>Geometry</span>
+            <span id="geom-status" class="muted">none — draw on map or load demo</span>
+          </div>
+          <p class="hint">Draw on the map, import GeoJSON below, or load the demo project.</p>
+          <details class="geo-import">
+            <summary>Import GeoJSON</summary>
+            <textarea id="geojson-paste" rows="4" placeholder='{"type":"Point","coordinates":[36.85,-1.37]}'></textarea>
+            <div class="geo-import-actions">
+              <button type="button" id="btn-apply-geojson" class="link-btn">Apply pasted geometry</button>
+              <label class="file-btn">Upload file<input type="file" id="geojson-file" accept=".json,.geojson,application/json" hidden /></label>
+            </div>
+          </details>
+        </div>
+
+        <details class="save-panel">
+          <summary>Save &amp; load projects</summary>
+          <div class="save-row">
+            <input type="text" id="save-name" placeholder="Project save name" />
+            <button type="button" id="btn-save-project" class="btn btn-secondary btn-sm">Save</button>
+          </div>
+          <label>Load saved
+            <select id="saved-projects"><option value="">— select —</option></select>
+          </label>
+          <button type="button" id="btn-load-saved" class="link-btn">Load selected</button>
+          <button type="button" id="btn-delete-saved" class="link-btn link-danger">Delete selected</button>
+        </details>
+
+        <details class="thresholds">
+          <summary>Risk thresholds</summary>
+          <p class="hint">Tune the rule-based cut-offs, then re-run to re-score.</p>
+          <div id="thresholds-grid" class="thresholds-grid"></div>
+          <button type="button" id="btn-reset-thresholds" class="link-btn">Reset to defaults</button>
+        </details>
+
+        <div class="actions actions-3">
+          <button type="button" id="btn-demo" class="btn btn-secondary">Load demo</button>
+          <button type="button" id="btn-preview-aoi" class="btn btn-secondary">Preview AOI</button>
+          <button type="submit" id="btn-assess" class="btn btn-primary">Run assessment</button>
+        </div>
+        <p id="aoi-preview-info" class="hint aoi-preview hidden"></p>
+        <p id="status" class="status" role="status"></p>
+      </form>
+
+      <div id="warnings-banner" class="warnings-banner hidden" role="alert"></div>
+
+      <div id="risk-summary" class="hidden">
+        <h2>Risk summary</h2>
+        <div class="overall">
+          <span class="muted">Overall</span>
+          <span id="overall-badge" class="badge">—</span>
+        </div>
+        <div id="risk-chart" class="risk-chart hidden"></div>
+        <div id="risk-list"></div>
+        <p id="pin-indicator" class="pin-indicator hidden"></p>
+        <button type="button" id="btn-pin" class="link-btn hidden">Pin for comparison</button>
+      </div>
+
+      <div id="mitigations-panel" class="mitigations-sidebar hidden">
+        <h2>Mitigations</h2>
+        <div id="mitigations-list"></div>
+      </div>
+    </section>
+
+    <section class="map-panel">
+      <div id="map"></div>
+      <div class="layer-controls" id="layer-controls">
+        <div class="layer-controls-head">Map layers</div>
+        <div id="layer-toggles"></div>
+        <div class="basemap-row">
+          <span class="muted">Basemap</span>
+          <select id="basemap-select">
+            <option value="osm">OpenStreetMap</option>
+            <option value="light">Carto light</option>
+            <option value="dark">Carto dark</option>
+            <option value="satellite">Satellite</option>
+          </select>
+        </div>
+      </div>
+      <div class="legend" id="legend"></div>
+    </section>
+  </main>
+
+  <section id="report-panel" class="panel report-panel hidden">
+    <div class="report-tabs">
+      <button class="tab active" data-tab="report">EIA report</button>
+      <button class="tab" data-tab="metrics">Metrics</button>
+      <button class="tab" data-tab="mitigations">Mitigations</button>
+      <button class="tab" data-tab="compare">Compare</button>
+      <button class="tab" data-tab="json">Raw JSON</button>
+      <div class="export-actions">
+        <button type="button" id="btn-pin-header" class="btn-export" disabled>Pin</button>
+        <button type="button" id="btn-copy" class="btn-export" disabled>Copy MD</button>
+        <button type="button" id="btn-geojson" class="btn-export" disabled>GeoJSON</button>
+        <button type="button" id="btn-json-dl" class="btn-export" disabled>JSON</button>
+        <button type="button" id="btn-md" class="btn-export" disabled>Markdown</button>
+        <button type="button" id="btn-print" class="btn-export" disabled>Print</button>
+        <button type="button" id="btn-docx" class="btn-export" disabled>DOCX</button>
+        <button type="button" id="btn-pdf" class="btn-export" disabled>PDF</button>
+      </div>
+    </div>
+    <div id="history-bar" class="history-bar hidden">
+      <span class="muted">Recent:</span>
+      <div id="history-chips"></div>
+    </div>
+    <article id="report-body" class="report-body markdown"></article>
+    <div id="metrics-body" class="metrics-body hidden"></div>
+    <div id="mitigations-body" class="mitigations-body hidden"></div>
+    <div id="compare-body" class="compare-body hidden"></div>
+    <pre id="json-body" class="json-body hidden"></pre>
+  </section>
+
+  <dialog id="shortcuts-dialog" class="modal">
+    <h3>Keyboard shortcuts</h3>
+    <table class="shortcuts-table">
+      <tr><td><kbd>Ctrl</kbd> + <kbd>Enter</kbd></td><td>Run assessment</td></tr>
+      <tr><td><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>P</kbd></td><td>Preview AOI</td></tr>
+      <tr><td><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>S</kbd></td><td>Share project link</td></tr>
+      <tr><td><kbd>?</kbd></td><td>This help</td></tr>
+    </table>
+    <button type="button" id="btn-close-shortcuts" class="btn btn-secondary">Close</button>
+  </dialog>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+env/
+.env
+*.log
+.DS_Store
+dist/
+build/
+
+# Local dev preview config (machine-specific paths)
+.claude/launch.json

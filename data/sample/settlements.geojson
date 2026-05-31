@@ -1,0 +1,18 @@
+{
+  "type": "FeatureCollection",
+  "name": "settlements",
+  "_source": "Sample data approximating populated places (GHSL/WorldPop style). Illustrative only.",
+  "crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+  "features": [
+    { "type": "Feature", "properties": { "name": "Nairobi CBD (sample)", "population": 250000, "type": "urban" },
+      "geometry": { "type": "Point", "coordinates": [36.8219, -1.2921] } },
+    { "type": "Feature", "properties": { "name": "Ongata Rongai (sample)", "population": 172000, "type": "town" },
+      "geometry": { "type": "Point", "coordinates": [36.7500, -1.3950] } },
+    { "type": "Feature", "properties": { "name": "Kitengela (sample)", "population": 154000, "type": "town" },
+      "geometry": { "type": "Point", "coordinates": [36.9600, -1.4700] } },
+    { "type": "Feature", "properties": { "name": "Athi River Town (sample)", "population": 81000, "type": "town" },
+      "geometry": { "type": "Point", "coordinates": [36.9780, -1.4560] } },
+    { "type": "Feature", "properties": { "name": "Kware Village (sample)", "population": 9500, "type": "village" },
+      "geometry": { "type": "Point", "coordinates": [36.8550, -1.3750] } }
+  ]
+}

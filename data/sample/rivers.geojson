@@ -1,0 +1,38 @@
+{
+  "type": "FeatureCollection",
+  "name": "rivers",
+  "_source": "Sample data approximating HydroRIVERS. Illustrative only.",
+  "crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "name": "Athi River (sample)", "flow": "perennial", "strahler_order": 5 },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [36.78, -1.30], [36.83, -1.35], [36.88, -1.40], [36.95, -1.46]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Nairobi River (sample)", "flow": "perennial", "strahler_order": 3 },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [36.72, -1.27], [36.80, -1.30], [36.88, -1.33], [36.94, -1.35]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Mbagathi River (sample)", "flow": "seasonal", "strahler_order": 2 },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [36.70, -1.40], [36.78, -1.41], [36.86, -1.43]
+        ]
+      }
+    }
+  ]
+}

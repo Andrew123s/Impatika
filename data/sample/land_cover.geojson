@@ -1,0 +1,26 @@
+{
+  "type": "FeatureCollection",
+  "name": "land_cover",
+  "_source": "Sample data approximating ESA WorldCover classes. Illustrative only.",
+  "crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+  "features": [
+    { "type": "Feature", "properties": { "class": "Grassland", "worldcover_code": 30 },
+      "geometry": { "type": "Polygon", "coordinates": [[[36.70,-1.50],[36.80,-1.50],[36.80,-1.40],[36.70,-1.40],[36.70,-1.50]]] } },
+    { "type": "Feature", "properties": { "class": "Tree cover", "worldcover_code": 10 },
+      "geometry": { "type": "Polygon", "coordinates": [[[36.80,-1.50],[36.90,-1.50],[36.90,-1.40],[36.80,-1.40],[36.80,-1.50]]] } },
+    { "type": "Feature", "properties": { "class": "Cropland", "worldcover_code": 40 },
+      "geometry": { "type": "Polygon", "coordinates": [[[36.90,-1.50],[37.00,-1.50],[37.00,-1.40],[36.90,-1.40],[36.90,-1.50]]] } },
+    { "type": "Feature", "properties": { "class": "Built-up", "worldcover_code": 50 },
+      "geometry": { "type": "Polygon", "coordinates": [[[36.70,-1.40],[36.80,-1.40],[36.80,-1.30],[36.70,-1.30],[36.70,-1.40]]] } },
+    { "type": "Feature", "properties": { "class": "Grassland", "worldcover_code": 30 },
+      "geometry": { "type": "Polygon", "coordinates": [[[36.80,-1.40],[36.90,-1.40],[36.90,-1.30],[36.80,-1.30],[36.80,-1.40]]] } },
+    { "type": "Feature", "properties": { "class": "Shrubland", "worldcover_code": 20 },
+      "geometry": { "type": "Polygon", "coordinates": [[[36.90,-1.40],[37.00,-1.40],[37.00,-1.30],[36.90,-1.30],[36.90,-1.40]]] } },
+    { "type": "Feature", "properties": { "class": "Built-up", "worldcover_code": 50 },
+      "geometry": { "type": "Polygon", "coordinates": [[[36.70,-1.30],[36.80,-1.30],[36.80,-1.20],[36.70,-1.20],[36.70,-1.30]]] } },
+    { "type": "Feature", "properties": { "class": "Built-up", "worldcover_code": 50 },
+      "geometry": { "type": "Polygon", "coordinates": [[[36.80,-1.30],[36.90,-1.30],[36.90,-1.20],[36.80,-1.20],[36.80,-1.30]]] } },
+    { "type": "Feature", "properties": { "class": "Cropland", "worldcover_code": 40 },
+      "geometry": { "type": "Polygon", "coordinates": [[[36.90,-1.30],[37.00,-1.30],[37.00,-1.20],[36.90,-1.20],[36.90,-1.30]]] } }
+  ]
+}
